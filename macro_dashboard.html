@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Global Macro Risk Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:       #05070a;
+    --bg1:      #080c12;
+    --bg2:      #0c1018;
+    --surface:  #101520;
+    --surface2: #151c28;
+    --border:   #1a2235;
+    --border2:  #243048;
+    --gold:     #d4a843;
+    --gold2:    #f0c85a;
+    --red:      #e05050;
+    --red2:     #ff6b6b;
+    --green:    #3db87a;
+    --green2:   #52d98f;
+    --blue:     #4a8fd4;
+    --blue2:    #6aaff0;
+    --amber:    #e8923a;
+    --purple:   #9b7fd4;
+    --teal:     #3dbdaa;
+    --dim:      #5a6580;
+    --text:     #c8d0e0;
+    --text2:    #8898b8;
+    --faint:    #2a3448;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans Thai', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scan line effect */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none; z-index: 9998;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    padding: 20px 28px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(180deg, rgba(212,168,67,0.05) 0%, transparent 100%);
+    flex-wrap: wrap; gap: 12px;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 16px; }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px; letter-spacing: 3px;
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    line-height: 1;
+  }
+
+  .logo-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; color: var(--dim); letter-spacing: 3px;
+    text-transform: uppercase; margin-top: 2px;
+  }
+
+  .divider-v { width: 1px; height: 36px; background: var(--border2); }
+
+  .header-meta { font-family: 'IBM Plex Mono', monospace; }
+  .hm-time { font-size: 18px; color: var(--text); font-weight: 500; }
+  .hm-date { font-size: 10px; color: var(--dim); margin-top: 2px; letter-spacing: 1px; }
+
+  .header-right { display: flex; align-items: center; gap: 10px; }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 12px; border-radius: 2px;
+    border: 1px solid; font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: 1px;
+  }
+
+  .status-live { color: var(--green); border-color: rgba(61,184,122,0.3); background: rgba(61,184,122,0.06); }
+  .status-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: blink 1.4s infinite; }
+
+  .status-warn { color: var(--amber); border-color: rgba(232,146,58,0.3); background: rgba(232,146,58,0.06); }
+  .status-err  { color: var(--red);   border-color: rgba(224,80,80,0.3);  background: rgba(224,80,80,0.06); }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .refresh-btn {
+    padding: 6px 14px; background: var(--surface2);
+    border: 1px solid var(--border2); color: var(--text2);
+    border-radius: 2px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; cursor: pointer; transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  .refresh-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .refresh-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* ── RISK GAUGE ── */
+  .risk-bar-wrap {
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+
+  .risk-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; letter-spacing: 3px; color: var(--dim);
+    text-transform: uppercase; white-space: nowrap;
+  }
+
+  .risk-track {
+    flex: 1; height: 6px; background: var(--faint);
+    border-radius: 3px; position: relative; min-width: 120px;
+  }
+
+  .risk-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--green), var(--amber), var(--red));
+    transition: width 1s cubic-bezier(0.4,0,0.2,1);
+    position: relative;
+  }
+
+  .risk-thumb {
+    position: absolute; right: -1px; top: 50%;
+    transform: translateY(-50%);
+    width: 12px; height: 12px; border-radius: 50%;
+    background: white; border: 2px solid;
+    box-shadow: 0 0 8px rgba(255,255,255,0.3);
+  }
+
+  .risk-score {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px; letter-spacing: 2px; line-height: 1;
+    min-width: 48px; text-align: right;
+  }
+
+  .risk-verdict {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    padding: 3px 10px; border: 1px solid; border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  /* ── MAIN GRID ── */
+  .main { padding: 20px 28px; }
+
+  .section-hd {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; letter-spacing: 4px; color: var(--dim);
+    text-transform: uppercase; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-hd::after { content: ''; flex: 1; height: 1px; background: var(--faint); }
+
+  /* Indicator cards */
+  .indicators-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px; margin-bottom: 24px;
+  }
+
+  .ind-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px; padding: 14px 16px;
+    position: relative; overflow: hidden;
+    transition: border-color 0.2s;
+    cursor: default;
+  }
+
+  .ind-card:hover { border-color: var(--border2); }
+
+  .ind-card::after {
+    content: ''; position: absolute;
+    top: 0; right: 0; width: 40px; height: 40px;
+    background: radial-gradient(circle at top right, var(--accent-color, transparent) 0%, transparent 70%);
+    opacity: 0.15; pointer-events: none;
+  }
+
+  .ind-card.danger  { --accent-color: var(--red);   border-left: 2px solid var(--red); }
+  .ind-card.warning { --accent-color: var(--amber); border-left: 2px solid var(--amber); }
+  .ind-card.safe    { --accent-color: var(--green); border-left: 2px solid var(--green); }
+  .ind-card.neutral { border-left: 2px solid var(--dim); }
+  .ind-card.loading { border-left: 2px solid var(--faint); }
+
+  .ind-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+
+  .ind-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; color: var(--dim); letter-spacing: 2px;
+    text-transform: uppercase; line-height: 1.4;
+  }
+
+  .ind-signal {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px; padding: 2px 6px; border-radius: 1px;
+    border: 1px solid; letter-spacing: 1px; text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .sig-danger  { color: var(--red2);   border-color: rgba(224,80,80,0.35);  background: rgba(224,80,80,0.08); }
+  .sig-warning { color: var(--amber);  border-color: rgba(232,146,58,0.35); background: rgba(232,146,58,0.08); }
+  .sig-safe    { color: var(--green2); border-color: rgba(61,184,122,0.35); background: rgba(61,184,122,0.08); }
+  .sig-neutral { color: var(--dim);    border-color: var(--faint);          background: transparent; }
+  .sig-loading { color: var(--faint);  border-color: var(--faint);          background: transparent; }
+
+  .ind-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px; letter-spacing: 1px; line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .ind-change {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; font-weight: 500;
+  }
+
+  .ind-change.up   { color: var(--red2); }
+  .ind-change.down { color: var(--green2); }
+  .ind-change.flat { color: var(--dim); }
+
+  .ind-desc {
+    font-size: 10px; color: var(--text2); line-height: 1.6;
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--faint);
+  }
+
+  .ind-threshold {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; color: var(--dim); margin-top: 6px;
+  }
+
+  .ind-threshold span { color: var(--amber); }
+
+  /* Skeleton shimmer */
+  .shimmer {
+    background: linear-gradient(90deg, var(--faint) 25%, var(--border2) 50%, var(--faint) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 2px; height: 36px; width: 80%;
+  }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  /* ── MINI SPARKLINE ── */
+  .spark-wrap { margin-top: 8px; }
+  canvas.spark { width: 100%; height: 36px; display: block; }
+
+  /* ── ALERT FEED ── */
+  .alerts-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 3px; margin-bottom: 24px; overflow: hidden;
+  }
+
+  .alerts-hd {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+
+  .alerts-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: 2px; color: var(--text2);
+    text-transform: uppercase;
+  }
+
+  .alerts-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; color: var(--red); letter-spacing: 1px;
+  }
+
+  .alert-item {
+    padding: 10px 16px; border-bottom: 1px solid var(--faint);
+    display: flex; gap: 12px; align-items: flex-start;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+
+  .alert-item:last-child { border-bottom: none; }
+
+  .alert-dot {
+    width: 6px; height: 6px; border-radius: 50%; margin-top: 4px; flex-shrink: 0;
+  }
+
+  .alert-text {
+    font-size: 11px; color: var(--text2); line-height: 1.6; flex: 1;
+  }
+
+  .alert-text strong { color: var(--text); }
+
+  .alert-time {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; color: var(--dim); white-space: nowrap; margin-top: 2px;
+  }
+
+  /* ── WATCH TABLE ── */
+  .watch-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 3px; overflow: hidden; margin-bottom: 24px;
+  }
+
+  .watch-row {
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1.5fr 1fr 2fr;
+    padding: 10px 16px; border-bottom: 1px solid var(--faint);
+    align-items: center; transition: background 0.15s;
+  }
+  .watch-row:hover { background: var(--surface2); }
+  .watch-row:last-child { border-bottom: none; }
+  .watch-row.hd { background: var(--bg2); border-bottom: 1px solid var(--border); }
+
+  .wc {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; color: var(--dim); letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  .wv { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500; }
+  .wn { font-size: 11px; color: var(--text); }
+  .wd { font-size: 10px; color: var(--text2); margin-top: 2px; }
+
+  .wstatus {
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+    padding: 2px 8px; border-radius: 1px; border: 1px solid;
+    letter-spacing: 1px; text-align: center; width: fit-content;
+  }
+
+  /* ── CORRELATION MATRIX ── */
+  .matrix-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 3px; padding: 16px; margin-bottom: 24px;
+  }
+
+  .matrix-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; color: var(--text2); letter-spacing: 2px;
+    text-transform: uppercase; margin-bottom: 12px;
+  }
+
+  .matrix-grid {
+    display: grid; gap: 4px;
+  }
+
+  .matrix-row { display: flex; gap: 4px; align-items: center; }
+
+  .matrix-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; color: var(--dim); width: 60px; text-align: right;
+    padding-right: 8px; white-space: nowrap;
+  }
+
+  .matrix-cell {
+    width: 44px; height: 28px; border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500;
+    transition: transform 0.2s; cursor: default;
+  }
+  .matrix-cell:hover { transform: scale(1.1); z-index: 1; }
+
+  /* ── FOOTNOTE ── */
+  .footnote {
+    padding: 12px 28px;
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+
+  .fn-text {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; color: var(--faint); letter-spacing: 1px;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .header, .main, .risk-bar-wrap, .footnote { padding-left: 16px; padding-right: 16px; }
+    .indicators-grid { grid-template-columns: 1fr 1fr; }
+    .watch-row { grid-template-columns: 2fr 1fr 1fr; }
+    .watch-row > *:nth-child(4), .watch-row > *:nth-child(5) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div>
+      <div class="logo">MACRO WATCH</div>
+      <div class="logo-sub">Global Risk Dashboard</div>
+    </div>
+    <div class="divider-v"></div>
+    <div class="header-meta">
+      <div class="hm-time" id="clock">--:--:--</div>
+      <div class="hm-date" id="dateStr">--</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill status-live" id="statusPill">LIVE DATA</div>
+    <button class="refresh-btn" id="refreshBtn" onclick="fetchAll()">⟳ REFRESH</button>
+  </div>
+</div>
+
+<!-- RISK GAUGE -->
+<div class="risk-bar-wrap">
+  <div class="risk-label">SYSTEMIC RISK INDEX</div>
+  <div class="risk-track">
+    <div class="risk-fill" id="riskFill" style="width:0%">
+      <div class="risk-thumb" id="riskThumb"></div>
+    </div>
+  </div>
+  <div class="risk-score" id="riskScore" style="color:var(--dim)">--</div>
+  <div class="risk-verdict" id="riskVerdict" style="color:var(--dim);border-color:var(--faint)">CALCULATING</div>
+</div>
+
+<div class="main">
+
+  <!-- PRIORITY INDICATORS -->
+  <div class="section-hd">Priority Indicators — ดูทุกวัน</div>
+  <div class="indicators-grid" id="priorityGrid">
+    <!-- Filled by JS -->
+  </div>
+
+  <!-- STRUCTURAL SIGNALS -->
+  <div class="section-hd">Structural Signals — ดูทุกสัปดาห์</div>
+  <div class="indicators-grid" id="structuralGrid"></div>
+
+  <!-- ALERT FEED -->
+  <div class="section-hd">Signal Alerts</div>
+  <div class="alerts-wrap">
+    <div class="alerts-hd">
+      <div class="alerts-title">▸ AUTO-GENERATED ALERTS</div>
+      <div class="alerts-count" id="alertCount">0 ALERTS</div>
+    </div>
+    <div id="alertFeed">
+      <div class="alert-item">
+        <div class="alert-dot" style="background:var(--dim)"></div>
+        <div class="alert-text">กำลังโหลดข้อมูล...</div>
+        <div class="alert-time">--</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WATCH TABLE -->
+  <div class="section-hd">Full Watch List</div>
+  <div class="watch-wrap">
+    <div class="watch-row hd">
+      <div class="wc">Indicator</div>
+      <div class="wc">Value</div>
+      <div class="wc">Change</div>
+      <div class="wc">Signal</div>
+      <div class="wc">ระดับที่ต้องระวัง</div>
+    </div>
+    <div id="watchTable"></div>
+  </div>
+
+  <!-- CORRELATION MATRIX -->
+  <div class="section-hd">Correlation Matrix — ความสัมพันธ์ระหว่าง Indicators</div>
+  <div class="matrix-wrap">
+    <div class="matrix-title">▸ เมื่อสีแดงขึ้นพร้อมกัน = systemic risk สูง</div>
+    <div id="matrixContainer"></div>
+  </div>
+
+</div>
+
+<!-- FOOTNOTE -->
+<div class="footnote">
+  <div class="fn-text">DATA: Yahoo Finance / FRED API · UPDATE: Real-time via public API · ข้อมูลบางส่วนอาจ delay 15 นาที</div>
+  <div class="fn-text" id="lastUpdate">LAST UPDATE: --</div>
+</div>
+
+<script>
+// ============================================================
+// STATE & CONFIG
+// ============================================================
+
+const INDICATORS = {
+  priority: [
+    {
+      id: 'US10Y',
+      name: 'US 10Y Treasury Yield',
+      ticker: '^TNX',
+      unit: '%',
+      desc: 'ถ้าขึ้นเร็วพร้อมดอลลาร์อ่อน — บอกว่ามีคนขาย US assets ทิ้งพร้อมกัน',
+      danger: v => v >= 5.0,
+      warning: v => v >= 4.5,
+      dangerTxt: '≥ 5.0%',
+      warnTxt: '≥ 4.5%',
+      invert: false, // ขึ้น = แย่
+    },
+    {
+      id: 'DXY',
+      name: 'US Dollar Index (DXY)',
+      ticker: 'DX-Y.NYB',
+      unit: '',
+      desc: 'ดอลลาร์อ่อนพร้อม yield ขึ้น = มีคนขาย US assets ออกทั้งคู่',
+      danger: v => v <= 98,
+      warning: v => v <= 100,
+      dangerTxt: '≤ 98',
+      warnTxt: '≤ 100',
+      invert: true,
+    },
+    {
+      id: 'VIX',
+      name: 'VIX Fear Index',
+      ticker: '^VIX',
+      unit: '',
+      desc: 'ถ้าค้างเกิน 40 นานกว่า 1 สัปดาห์ = กลัวจริง ไม่ใช่แค่ผันผวนปกติ',
+      danger: v => v >= 40,
+      warning: v => v >= 25,
+      dangerTxt: '≥ 40',
+      warnTxt: '≥ 25',
+      invert: false,
+    },
+    {
+      id: 'GOLD',
+      name: 'Gold Price (USD/oz)',
+      ticker: 'GC=F',
+      unit: '$',
+      prefix: true,
+      desc: 'ทองขึ้นพร้อม yield ขึ้น = ตลาดหา safe haven นอกดอลลาร์ — สัญญาณน่ากังวล',
+      danger: v => v >= 3500,
+      warning: v => v >= 3000,
+      dangerTxt: '≥ $3,500',
+      warnTxt: '≥ $3,000',
+      invert: false,
+    },
+  ],
+  structural: [
+    {
+      id: 'SP500',
+      name: 'S&P 500',
+      ticker: '^GSPC',
+      unit: '',
+      desc: 'ดัชนีตลาดหุ้นสหรัฐหลัก — proxy ของความเชื่อมั่นเศรษฐกิจโลก',
+      danger: v => false,
+      warning: v => false,
+      dangerTxt: 'Bear: −20%',
+      warnTxt: 'Correction: −10%',
+      invert: true,
+    },
+    {
+      id: 'DJIA',
+      name: 'Dow Jones (DJIA)',
+      ticker: '^DJI',
+      unit: '',
+      desc: 'ดัชนีอุตสาหกรรม 30 บริษัทใหญ่ในสหรัฐฯ',
+      danger: v => false,
+      warning: v => false,
+      dangerTxt: 'Bear: −20%',
+      warnTxt: 'Correction: −10%',
+      invert: true,
+    },
+    {
+      id: 'OIL',
+      name: 'Crude Oil WTI (USD/bbl)',
+      ticker: 'CL=F',
+      unit: '$',
+      prefix: true,
+      desc: 'ราคาน้ำมัน spike รวดเร็ว = supply shock เหมือน 1973 — stagflation risk',
+      danger: v => v >= 120,
+      warning: v => v >= 90,
+      dangerTxt: '≥ $120 (Shock)',
+      warnTxt: '≥ $90',
+      invert: false,
+    },
+    {
+      id: 'USDJPY',
+      name: 'USD/JPY (Yen Rate)',
+      ticker: 'JPY=X',
+      unit: '',
+      suffix: ' ¥',
+      desc: 'เยนอ่อนมาก = Carry Trade ยังอยู่ เยนแข็งกะทันหัน = Unwind risk ทั่วโลก',
+      danger: v => v <= 130 || v >= 158,
+      warning: v => v <= 135 || v >= 152,
+      dangerTxt: '< 130 หรือ > 158',
+      warnTxt: '< 135 หรือ > 152',
+      invert: false,
+    },
+    {
+      id: 'BTC',
+      name: 'Bitcoin (USD)',
+      ticker: 'BTC-USD',
+      unit: '$',
+      prefix: true,
+      desc: 'Crypto เป็น risk appetite indicator — ถ้าดิ่งแรงพร้อมหุ้น = risk-off mode',
+      danger: v => false,
+      warning: v => false,
+      dangerTxt: 'Risk-off: −30%',
+      warnTxt: 'Caution: −15%',
+      invert: true,
+    },
+    {
+      id: 'SET',
+      name: 'SET Index (Thailand)',
+      ticker: '^SET.BK',
+      unit: '',
+      desc: 'ตลาดหุ้นไทย — สะท้อน regional EM sentiment และ global risk appetite',
+      danger: v => false,
+      warning: v => false,
+      dangerTxt: 'Bear: < 1,200',
+      warnTxt: 'Caution: < 1,400',
+      invert: true,
+    },
+  ],
+};
+
+const state = {
+  data: {},
+  history: {},
+  alerts: [],
+  riskScore: 0,
+  lastFetch: null,
+  loading: false,
+};
+
+// ============================================================
+// CLOCK
+// ============================================================
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('th-TH', { hour12: false });
+  const opts = { weekday:'short', year:'numeric', month:'short', day:'numeric', timeZone:'Asia/Bangkok' };
+  document.getElementById('dateStr').textContent =
+    now.toLocaleDateString('th-TH', opts).toUpperCase();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ============================================================
+// FETCH via Yahoo Finance (CORS proxy)
+// ============================================================
+async function fetchTicker(ticker) {
+  // Using allorigins as CORS proxy for Yahoo Finance
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
+  const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+
+  const resp = await fetch(proxy, { signal: AbortSignal.timeout(8000) });
+  if (!resp.ok) throw new Error('fetch failed');
+  const outer = await resp.json();
+  const data = JSON.parse(outer.contents);
+
+  const result = data?.chart?.result?.[0];
+  if (!result) throw new Error('no result');
+
+  const meta = result.meta;
+  const closes = result.indicators?.quote?.[0]?.close || [];
+  const timestamps = result.timestamp || [];
+
+  const price = meta.regularMarketPrice ?? closes[closes.length - 1];
+  const prev  = meta.chartPreviousClose ?? closes[closes.length - 2];
+  const change = prev ? price - prev : 0;
+  const changePct = prev ? (change / prev) * 100 : 0;
+
+  // Build spark history (last 5 days)
+  const history = closes.filter(Boolean).slice(-5);
+
+  return { price, prev, change, changePct, history, name: meta.shortName || ticker };
+}
+
+// ============================================================
+// RENDER HELPERS
+// ============================================================
+function fmtVal(ind, v) {
+  if (v === null || v === undefined || isNaN(v)) return '--';
+  const abs = Math.abs(v);
+  let s = abs >= 1000 ? abs.toLocaleString('en', {maximumFractionDigits:0}) :
+          abs >= 100  ? abs.toFixed(1) :
+          abs >= 10   ? abs.toFixed(2) :
+                        abs.toFixed(2);
+  if (ind.prefix) s = '$' + s;
+  if (ind.suffix) s = s + ind.suffix;
+  if (ind.unit && !ind.prefix) s = s + ind.unit;
+  return s;
+}
+
+function getSignal(ind, v) {
+  if (v === null || isNaN(v)) return { cls: 'neutral', label: 'LOADING', cardCls: 'loading' };
+  if (ind.danger(v)) return { cls: 'danger',  label: 'DANGER',  cardCls: 'danger' };
+  if (ind.warning(v)) return { cls: 'warning', label: 'CAUTION', cardCls: 'warning' };
+  return { cls: 'safe', label: 'NORMAL', cardCls: 'safe' };
+}
+
+function drawSpark(canvas, history, isGood) {
+  if (!history || history.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 160, H = 36;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const mn = Math.min(...history), mx = Math.max(...history);
+  const range = mx - mn || 1;
+  const xS = i => (i / (history.length - 1)) * W;
+  const yS = v => H - ((v - mn) / range) * H * 0.85 - H * 0.07;
+
+  const trend = history[history.length-1] >= history[0];
+  const color = trend === isGood ? '#3db87a' : '#e05050';
+
+  ctx.beginPath();
+  history.forEach((v, i) => { if(i===0) ctx.moveTo(xS(i),yS(v)); else ctx.lineTo(xS(i),yS(v)); });
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, color+'30'); g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g; ctx.fill();
+
+  ctx.beginPath();
+  history.forEach((v, i) => { if(i===0) ctx.moveTo(xS(i),yS(v)); else ctx.lineTo(xS(i),yS(v)); });
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke();
+}
+
+function makeCard(ind) {
+  const d = state.data[ind.id];
+  const h = state.history[ind.id] || [];
+
+  const v = d?.price;
+  const sig = getSignal(ind, v);
+  const chg = d?.changePct;
+  const chgDir = chg > 0.05 ? 'up' : chg < -0.05 ? 'down' : 'flat';
+  const chgTxt = chg !== undefined ? `${chg > 0 ? '▲' : chg < 0 ? '▼' : '—'} ${Math.abs(chg).toFixed(2)}%` : '—';
+
+  const valDisplay = v !== undefined ? fmtVal(ind, v) : '<div class="shimmer"></div>';
+  const valColor = sig.cls === 'danger' ? 'var(--red2)' : sig.cls === 'warning' ? 'var(--amber)' : sig.cls === 'safe' ? 'var(--text)' : 'var(--dim)';
+
+  return `
+    <div class="ind-card ${sig.cardCls}" id="card-${ind.id}">
+      <div class="ind-top">
+        <div class="ind-name">${ind.name}</div>
+        <div class="ind-signal sig-${sig.cls}">${sig.label}</div>
+      </div>
+      <div class="ind-value" style="color:${valColor}">${valDisplay}</div>
+      <div class="ind-change ${chgDir}">${chgTxt} 1D</div>
+      <div class="spark-wrap"><canvas class="spark" id="spark-${ind.id}"></canvas></div>
+      <div class="ind-desc">${ind.desc}</div>
+      <div class="ind-threshold">⚠ ระวัง: <span>${ind.warnTxt}</span> &nbsp;🔴 Danger: <span style="color:var(--red)">${ind.dangerTxt}</span></div>
+    </div>
+  `;
+}
+
+function renderCards() {
+  const prios = INDICATORS.priority.map(makeCard).join('');
+  const structs = INDICATORS.structural.map(makeCard).join('');
+  document.getElementById('priorityGrid').innerHTML = prios;
+  document.getElementById('structuralGrid').innerHTML = structs;
+
+  // Draw sparklines
+  setTimeout(() => {
+    [...INDICATORS.priority, ...INDICATORS.structural].forEach(ind => {
+      const el = document.getElementById('spark-' + ind.id);
+      if (el && state.history[ind.id]) drawSpark(el, state.history[ind.id], !ind.invert);
+    });
+  }, 50);
+}
+
+// ============================================================
+// RISK SCORE
+// ============================================================
+function calcRisk() {
+  let score = 0, count = 0;
+  [...INDICATORS.priority, ...INDICATORS.structural].forEach(ind => {
+    const v = state.data[ind.id]?.price;
+    if (v === undefined) return;
+    if (ind.danger(v)) score += 3;
+    else if (ind.warning(v)) score += 1;
+    count++;
+  });
+
+  const pct = count > 0 ? Math.min(100, Math.round((score / (count * 3)) * 100)) : 0;
+  state.riskScore = pct;
+
+  const fill = document.getElementById('riskFill');
+  const scoreEl = document.getElementById('riskScore');
+  const verdict = document.getElementById('riskVerdict');
+  const thumb = document.getElementById('riskThumb');
+
+  fill.style.width = pct + '%';
+
+  let color, label;
+  if (pct >= 60)      { color = 'var(--red)';   label = 'HIGH RISK'; }
+  else if (pct >= 35) { color = 'var(--amber)';  label = 'ELEVATED'; }
+  else if (pct >= 15) { color = 'var(--gold)';   label = 'MODERATE'; }
+  else                { color = 'var(--green)';  label = 'CONTAINED'; }
+
+  scoreEl.textContent = pct;
+  scoreEl.style.color = color;
+  thumb.style.borderColor = color;
+  verdict.textContent = label;
+  verdict.style.color = color;
+  verdict.style.borderColor = color.replace('var(', 'rgba(').replace(')', ',0.4)');
+}
+
+// ============================================================
+// ALERTS
+// ============================================================
+function generateAlerts() {
+  const alerts = [];
+  const now = new Date().toLocaleTimeString('th-TH', { hour12: false });
+
+  // US10Y + DXY anomaly
+  const y10 = state.data['US10Y']?.price;
+  const dxy = state.data['DXY']?.price;
+  const yChg = state.data['US10Y']?.changePct;
+  const dChg = state.data['DXY']?.changePct;
+
+  if (y10 && dxy && yChg > 0.5 && dChg < -0.3) {
+    alerts.push({ color: 'var(--red)', text: '<strong>⚠ Anomaly Detected:</strong> Yield ขึ้นพร้อมดอลลาร์อ่อน — สัญญาณผิดปกติที่บ่งชี้ว่ามีการขาย US Assets พร้อมกัน', time: now });
+  }
+
+  if (y10 >= 5.0) {
+    alerts.push({ color: 'var(--red)', text: `<strong>🔴 US 10Y Yield แตะ ${y10.toFixed(2)}%</strong> — เกินระดับ 5% ซึ่งเพิ่มแรงกดดันต่อ debt servicing และ valuation หุ้น`, time: now });
+  } else if (y10 >= 4.5) {
+    alerts.push({ color: 'var(--amber)', text: `<strong>⚠ US 10Y Yield ที่ ${y10?.toFixed(2)}%</strong> — ใกล้ระดับอันตราย 5% จับตาใกล้ชิด`, time: now });
+  }
+
+  const vix = state.data['VIX']?.price;
+  if (vix >= 40) {
+    alerts.push({ color: 'var(--red)', text: `<strong>🔴 VIX = ${vix?.toFixed(1)}</strong> — ระดับ panic สูงมาก ตลาดอยู่ในโหมดกลัว ประวัติศาสตร์บอกว่านี่มักใกล้ bottom`, time: now });
+  } else if (vix >= 25) {
+    alerts.push({ color: 'var(--amber)', text: `<strong>⚠ VIX = ${vix?.toFixed(1)}</strong> — ความกลัวเพิ่มขึ้น ตลาดเข้าสู่ elevated volatility`, time: now });
+  }
+
+  const gold = state.data['GOLD']?.price;
+  const goldChg = state.data['GOLD']?.changePct;
+  if (gold && y10 && goldChg > 0.5 && yChg > 0.3) {
+    alerts.push({ color: 'var(--red)', text: `<strong>⚠ Gold-Yield Anomaly:</strong> ทองและ Yield ขึ้นพร้อมกัน — ตลาดกำลังหา safe haven นอกระบบดอลลาร์`, time: now });
+  }
+
+  const oil = state.data['OIL']?.price;
+  if (oil >= 120) {
+    alerts.push({ color: 'var(--red)', text: `<strong>🔴 น้ำมัน WTI = $${oil?.toFixed(1)}/bbl</strong> — ระดับ shock เทียบเท่า Oil Crisis 1979 Stagflation risk สูงมาก`, time: now });
+  }
+
+  const yen = state.data['USDJPY']?.price;
+  const yenChg = state.data['USDJPY']?.changePct;
+  if (yen && yenChg < -1.5) {
+    alerts.push({ color: 'var(--red)', text: `<strong>⚠ Yen แข็งกะทันหัน ${yenChg?.toFixed(2)}%</strong> — เสี่ยง Yen Carry Trade Unwind แบบ ส.ค. 2024`, time: now });
+  }
+
+  if (alerts.length === 0) {
+    alerts.push({ color: 'var(--green)', text: '<strong>✓ ไม่พบสัญญาณอันตรายเร่งด่วน</strong> — Indicators อยู่ในระดับปกติ', time: now });
+  }
+
+  state.alerts = alerts;
+  const feed = document.getElementById('alertFeed');
+  feed.innerHTML = alerts.map(a => `
+    <div class="alert-item">
+      <div class="alert-dot" style="background:${a.color}"></div>
+      <div class="alert-text">${a.text}</div>
+      <div class="alert-time">${a.time}</div>
+    </div>
+  `).join('');
+
+  const redCount = alerts.filter(a => a.color === 'var(--red)').length;
+  document.getElementById('alertCount').textContent =
+    redCount > 0 ? `${redCount} ALERT${redCount>1?'S':''}` : 'ALL CLEAR';
+  document.getElementById('alertCount').style.color =
+    redCount > 0 ? 'var(--red)' : 'var(--green)';
+}
+
+// ============================================================
+// WATCH TABLE
+// ============================================================
+function renderWatchTable() {
+  const all = [...INDICATORS.priority, ...INDICATORS.structural];
+  const rows = all.map(ind => {
+    const d = state.data[ind.id];
+    const v = d?.price;
+    const sig = getSignal(ind, v);
+    const chg = d?.changePct;
+    const chgDir = chg > 0.05 ? 'up' : chg < -0.05 ? 'down' : 'flat';
+    const chgColor = chgDir === 'up' ? 'var(--red2)' : chgDir === 'down' ? 'var(--green2)' : 'var(--dim)';
+    const chgTxt = chg !== undefined ? `${chg>0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%` : '--';
+
+    return `
+      <div class="watch-row">
+        <div><div class="wn">${ind.name}</div><div class="wd">${ind.ticker}</div></div>
+        <div class="wv" style="color:${sig.cls==='danger'?'var(--red2)':sig.cls==='warning'?'var(--amber)':'var(--text)'}">${v !== undefined ? fmtVal(ind, v) : '--'}</div>
+        <div class="wv" style="color:${chgColor};font-size:11px">${chgTxt}</div>
+        <div><div class="wstatus sig-${sig.cls}">${sig.label}</div></div>
+        <div style="font-size:10px;color:var(--text2)">⚠ ${ind.warnTxt} &nbsp; 🔴 ${ind.dangerTxt}</div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('watchTable').innerHTML = rows;
+}
+
+// ============================================================
+// CORRELATION MATRIX
+// ============================================================
+function renderMatrix() {
+  const ids = ['US10Y','VIX','GOLD','DXY','OIL','USDJPY'];
+  const labels = ['10Y','VIX','Gold','DXY','Oil','¥'];
+  const changes = ids.map(id => state.data[id]?.changePct ?? 0);
+
+  // Simple correlation proxy: same direction = positive, opposite = negative
+  let html = `<div class="matrix-grid">`;
+
+  // Header row
+  html += `<div class="matrix-row">
+    <div class="matrix-label"></div>
+    ${labels.map(l => `<div class="matrix-cell" style="font-size:8px;color:var(--dim);background:transparent">${l}</div>`).join('')}
+  </div>`;
+
+  for (let i = 0; i < ids.length; i++) {
+    html += `<div class="matrix-row"><div class="matrix-label">${labels[i]}</div>`;
+    for (let j = 0; j < ids.length; j++) {
+      if (i === j) {
+        html += `<div class="matrix-cell" style="background:var(--border2);color:var(--dim)">1.0</div>`;
+        continue;
+      }
+      const ci = changes[i], cj = changes[j];
+      // Simulated correlation based on current moves
+      const sameDir = (ci > 0 && cj > 0) || (ci < 0 && cj < 0);
+      const strength = Math.min(1, Math.abs(ci * cj) / 4);
+      const corr = sameDir ? strength : -strength;
+      const r = Math.round(corr * 10) / 10;
+      const absR = Math.abs(r);
+      const alpha = 0.1 + absR * 0.7;
+      const bg = r > 0.1
+        ? `rgba(224,80,80,${alpha})`
+        : r < -0.1
+        ? `rgba(61,184,122,${alpha})`
+        : 'var(--faint)';
+      const textColor = absR > 0.3 ? 'white' : 'var(--dim)';
+      html += `<div class="matrix-cell" style="background:${bg};color:${textColor}">${r.toFixed(1)}</div>`;
+    }
+    html += `</div>`;
+  }
+  html += `</div>`;
+  document.getElementById('matrixContainer').innerHTML = html;
+}
+
+// ============================================================
+// MAIN FETCH
+// ============================================================
+async function fetchAll() {
+  if (state.loading) return;
+  state.loading = true;
+
+  const btn = document.getElementById('refreshBtn');
+  const pill = document.getElementById('statusPill');
+  btn.disabled = true;
+  btn.textContent = '⟳ LOADING...';
+  pill.className = 'status-pill status-warn';
+  pill.textContent = 'FETCHING';
+
+  // Init cards skeleton
+  renderCards();
+
+  const all = [...INDICATORS.priority, ...INDICATORS.structural];
+  const results = await Promise.allSettled(
+    all.map(async ind => {
+      const d = await fetchTicker(ind.ticker);
+      state.data[ind.id] = d;
+      state.history[ind.id] = d.history;
+      return ind.id;
+    })
+  );
+
+  const failed = results.filter(r => r.status === 'rejected').length;
+
+  renderCards();
+  calcRisk();
+  generateAlerts();
+  renderWatchTable();
+  renderMatrix();
+
+  const now = new Date().toLocaleTimeString('th-TH');
+  document.getElementById('lastUpdate').textContent = `LAST UPDATE: ${now}`;
+
+  state.loading = false;
+  state.lastFetch = new Date();
+  btn.disabled = false;
+  btn.textContent = '⟳ REFRESH';
+
+  if (failed === 0) {
+    pill.className = 'status-pill status-live';
+    pill.textContent = 'LIVE DATA';
+  } else if (failed < all.length) {
+    pill.className = 'status-pill status-warn';
+    pill.textContent = `PARTIAL (${all.length - failed}/${all.length})`;
+  } else {
+    pill.className = 'status-pill status-err';
+    pill.textContent = 'DATA ERROR';
+    // Fallback to static demo data
+    loadDemoData();
+  }
+}
+
+// ============================================================
+// DEMO DATA (fallback if API fails)
+// ============================================================
+function loadDemoData() {
+  const demo = {
+    'US10Y': { price: 4.58, prev: 4.51, change: 0.07, changePct: 1.55, history: [4.2,4.35,4.41,4.51,4.58] },
+    'DXY':   { price: 99.8, prev: 100.3, change: -0.5, changePct: -0.50, history: [102,101,100.8,100.3,99.8] },
+    'VIX':   { price: 28.4, prev: 24.1, change: 4.3, changePct: 17.8, history: [18,20,22,24.1,28.4] },
+    'GOLD':  { price: 3185, prev: 3120, change: 65, changePct: 2.08, history: [2950,3020,3080,3120,3185] },
+    'SP500': { price: 5187, prev: 5282, change: -95, changePct: -1.80, history: [5450,5380,5310,5282,5187] },
+    'DJIA':  { price: 38652, prev: 39421, change: -769, changePct: -1.95, history: [40200,39800,39500,39421,38652] },
+    'OIL':   { price: 72.4, prev: 70.8, change: 1.6, changePct: 2.26, history: [68,69.5,70,70.8,72.4] },
+    'USDJPY':{ price: 143.2, prev: 145.8, change: -2.6, changePct: -1.78, history: [149,148,146.5,145.8,143.2] },
+    'BTC':   { price: 83420, prev: 86100, change: -2680, changePct: -3.11, history: [91000,88000,86500,86100,83420] },
+    'SET':   { price: 1285, prev: 1298, change: -13, changePct: -1.00, history: [1340,1320,1305,1298,1285] },
+  };
+  Object.assign(state.data, demo);
+  Object.keys(demo).forEach(id => { state.history[id] = demo[id].history; });
+  renderCards();
+  calcRisk();
+  generateAlerts();
+  renderWatchTable();
+  renderMatrix();
+
+  const pill = document.getElementById('statusPill');
+  pill.className = 'status-pill status-warn';
+  pill.textContent = 'DEMO MODE';
+}
+
+// ============================================================
+// AUTO-REFRESH every 5 min
+// ============================================================
+setInterval(() => {
+  if (!document.hidden) fetchAll();
+}, 5 * 60 * 1000);
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', () => {
+  // Show skeleton first, then fetch
+  [...INDICATORS.priority, ...INDICATORS.structural].forEach(ind => {
+    state.data[ind.id] = undefined;
+    state.history[ind.id] = [];
+  });
+  renderCards();
+  fetchAll();
+});
+</script>
+</body>
+</html>
